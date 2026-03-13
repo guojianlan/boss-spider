@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Newcomer Onboarding"
+  short_description: "Generate newcomer onboarding guides for any repository"
+  default_prompt: "Use $repo-newcomer-onboarding to inspect this repository and generate a clickable, newcomer-friendly onboarding document under docs/."

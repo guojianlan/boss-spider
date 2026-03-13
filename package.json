@@ -1,0 +1,16 @@
+{
+  "name": "boss-spider",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./scripts/dev.mjs",
+    "build": "node ./scripts/build.mjs",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.325",
+    "esbuild": "^0.25.1",
+    "typescript": "^5.8.2"
+  }
+}
