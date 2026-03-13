@@ -4,10 +4,10 @@
   var DEV_POLL_INTERVAL_MS = 1e3;
   var startedWatchers = /* @__PURE__ */ new Set();
   async function fetchBuildInfo() {
-    if (true) {
+    if (false) {
       return null;
     }
-    const response = await fetch(`${""}/__boss_spider__/build-info?t=${Date.now()}`, {
+    const response = await fetch(`${"http://localhost:3456"}/__boss_spider__/build-info?t=${Date.now()}`, {
       cache: "no-store"
     });
     if (!response.ok) {
@@ -16,7 +16,7 @@
     return await response.json();
   }
   function startWatcher(id, onChange) {
-    if (true) {
+    if (startedWatchers.has(id)) {
       return;
     }
     startedWatchers.add(id);
