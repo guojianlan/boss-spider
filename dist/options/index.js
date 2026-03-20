@@ -4,10 +4,10 @@
   var DEV_POLL_INTERVAL_MS = 1e3;
   var startedWatchers = /* @__PURE__ */ new Set();
   async function fetchBuildInfo() {
-    if (false) {
+    if (true) {
       return null;
     }
-    const response = await fetch(`${"http://localhost:3456"}/__boss_spider__/build-info?t=${Date.now()}`, {
+    const response = await fetch(`${""}/__boss_spider__/build-info?t=${Date.now()}`, {
       cache: "no-store"
     });
     if (!response.ok) {
@@ -16,7 +16,7 @@
     return await response.json();
   }
   function startWatcher(id, onChange) {
-    if (startedWatchers.has(id)) {
+    if (true) {
       return;
     }
     startedWatchers.add(id);
@@ -57,9 +57,46 @@
     });
   }
 
+  // src/shared/storage.ts
+  var defaultSettings = {
+    provider: {
+      baseUrl: "",
+      apiKey: "",
+      model: "gpt-4.1-mini"
+    },
+    defaults: {
+      keywordsMustMatch: "",
+      keywordsOptional: "",
+      keywordsExclude: "",
+      notesForAI: "",
+      maxItems: 20,
+      delayMs: 1200,
+      skipIfAlreadyFavorited: true
+    },
+    debug: {
+      enabled: false
+    }
+  };
+
   // src/options/index.ts
   var currentSettings = null;
   var statusText = "";
+  function normalizeSettings(settings) {
+    return {
+      provider: {
+        ...defaultSettings.provider,
+        ...settings?.provider ?? {}
+      },
+      defaults: {
+        ...defaultSettings.defaults,
+        ...settings?.defaults ?? {}
+      },
+      debug: {
+        ...defaultSettings.debug,
+        ...settings?.debug ?? {}
+      }
+    };
+  }
   async function sendToBackground(request) {
     const response = await chrome.runtime.sendMessage(request);
     if (!response.ok) {
@@ -75,6 +112,7 @@
     if (!app || !currentSettings) {
       return;
     }
+    const debugEnabled = currentSettings.debug?.enabled ?? false;
     app.innerHTML = `
     <div class="panel">
       <h1>Boss Spider \u8BBE\u7F6E</h1>
@@ -117,7 +155,7 @@
         <label><input id="skipFavorited" type="checkbox" ${currentSettings.defaults.skipIfAlreadyFavorited ? "checked" : ""} /> \u5DF2\u6536\u85CF\u81EA\u52A8\u8DF3\u8FC7</label>
       </div>
       <div class="field">
-        <label><input id="debugMode" type="checkbox" ${currentSettings.debug.enabled ? "checked" : ""} /> \u5F00\u542F\u9875\u9762\u8C03\u8BD5\u6A21\u5F0F</label>
+        <label><input id="debugMode" type="checkbox" ${debugEnabled ? "checked" : ""} /> \u5F00\u542F\u9875\u9762\u8C03\u8BD5\u6A21\u5F0F</label>
         <div class="muted" style="margin-top:6px;">\u5F00\u542F\u540E\uFF0C\u652F\u6301\u9875\u9762\u5DE6\u4E0B\u89D2\u4F1A\u51FA\u73B0\u201C\u5BFC\u51FA DOM \u5FEB\u7167\u201D\u6309\u94AE\uFF0C\u53EF\u628A\u9875\u9762\u5143\u7D20\u6811\u5BFC\u51FA\u6210 JSON \u4F9B\u6392\u67E5\u9009\u62E9\u5668\u3002</div>
       </div>
       <div>
@@ -139,6 +177,7 @@
       return;
     }
     currentSettings = {
+      ...normalizeSettings(currentSettings),
       provider: {
         baseUrl: getInputValue("baseUrl").trim(),
         apiKey: getInputValue("apiKey").trim(),
@@ -165,7 +204,7 @@
   }
   async function bootstrap() {
     const { settings } = await sendToBackground({ type: "GET_SETTINGS" });
-    currentSettings = settings;
+    currentSettings = normalizeSettings(settings);
     render();
   }
   void bootstrap();

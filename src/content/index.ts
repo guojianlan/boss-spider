@@ -1,6 +1,6 @@
 import type { ContentRequest, ContentResponse } from '../shared/messages';
 import { startContentScriptDevWatcher } from '../dev/reload';
-import { syncDebugTools } from './debugTools';
+import { pushDebugLog, syncDebugTools } from './debugTools';
 import { showCompletionToast, showErrorToast, renderRuntimeOverlay } from './overlay';
 import { bossAdapter, type BossAdapter } from '../sites/boss/adapter';
 import { jobsAdapter, type JobsAdapter } from '../sites/jobs/adapter';
@@ -44,6 +44,9 @@ async function handleRequest(request: ContentRequest): Promise<ContentResponse> 
       return ok({ ok: true });
     case 'SET_DEBUG_MODE':
       syncDebugTools(request.enabled);
+      return ok({ ok: true });
+    case 'PUSH_DEBUG_LOG':
+      pushDebugLog(request.entry);
       return ok({ ok: true });
     case 'UPDATE_OVERLAY':
       renderRuntimeOverlay(request.runtime);

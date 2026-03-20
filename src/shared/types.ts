@@ -1,5 +1,7 @@
 export type DecisionKind = 'favorite' | 'skip' | 'unsure';
 export type RuntimeState = 'idle' | 'running' | 'stopping' | 'complete' | 'error';
+export type PageKind = 'job' | 'candidate';
+export type DebugLogKind = 'input' | 'prompt' | 'output' | 'action' | 'status' | 'error';
 
 export interface ProviderSettings {
   baseUrl: string;
@@ -46,11 +48,22 @@ export interface AIDecision {
   confidence: number;
 }
 
+export interface DebugLogEntry {
+  id: string;
+  createdAt: string;
+  kind: DebugLogKind;
+  title: string;
+  content: string;
+}
+
 export interface PageSupportStatus {
   supported: boolean;
   url: string;
   reason?: string;
   candidateCount: number;
+  pageKind: PageKind;
+  modeLabel: string;
+  dynamicList: boolean;
 }
 
 export interface CandidateEvidence {
@@ -61,6 +74,8 @@ export interface CandidateEvidence {
   summaryText: string;
   tags: string[];
   alreadyFavorited: boolean;
+  pageKind: PageKind;
+  modeLabel: string;
 }
 
 export interface RunItemResult {

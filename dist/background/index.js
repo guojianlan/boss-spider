@@ -7,21 +7,29 @@ ${content.trim() || "\u65E0"}
 `;
   }
   function createDecisionPrompt(plan, evidence) {
+    const isCandidateMode = evidence.pageKind === "candidate";
+    const roleText = isCandidateMode ? "\u5019\u9009\u4EBA\u7B5B\u9009\u52A9\u624B" : "\u804C\u4F4D\u7B5B\u9009\u52A9\u624B";
+    const targetText = isCandidateMode ? "\u5019\u9009\u4EBA" : "\u804C\u4F4D";
+    const labelText = isCandidateMode ? "\u5F53\u524D\u5019\u9009\u4EBA\u6458\u8981" : "\u5F53\u524D\u804C\u4F4D/\u516C\u53F8\u6458\u8981";
+    const summaryTitle = isCandidateMode ? "\u5DE6\u4FA7\u5019\u9009\u4EBA\u6458\u8981\uFF1A" : "\u5DE6\u4FA7\u804C\u4F4D\u6458\u8981\uFF1A";
+    const detailTitle = isCandidateMode ? "\u53F3\u4FA7\u5019\u9009\u4EBA\u8BE6\u60C5\u6587\u672C\uFF1A" : "\u53F3\u4FA7\u804C\u4F4D\u8BE6\u60C5\u6587\u672C\uFF1A";
+    const guidance = isCandidateMode ? "\u8BF7\u7ED3\u5408\u5019\u9009\u4EBA\u7684\u5DE5\u4F5C\u7ECF\u5386\u3001\u6280\u80FD\u6807\u7B7E\u3001\u884C\u4E1A\u80CC\u666F\u3001\u7A33\u5B9A\u6027\u3001\u8FD1\u5E74\u7ECF\u9A8C\u548C\u5173\u952E\u8BCD\u5339\u914D\u60C5\u51B5\u5224\u65AD\u662F\u5426\u503C\u5F97\u6536\u85CF\u3002" : "\u8BF7\u7ED3\u5408\u804C\u4F4D\u8981\u6C42\u3001\u516C\u53F8\u4FE1\u606F\u3001\u884C\u4E1A/\u9636\u6BB5/\u89C4\u6A21\u3001\u5173\u952E\u8BCD\u5339\u914D\u60C5\u51B5\u5224\u65AD\u662F\u5426\u503C\u5F97\u6536\u85CF\u3002";
     return [
-      "\u4F60\u662F\u4E00\u4E2A\u804C\u4F4D\u7B5B\u9009\u52A9\u624B\u3002\u4F60\u53EA\u80FD\u6839\u636E\u7528\u6237\u7ED9\u5B9A\u7684\u89C4\u5219\uFF0C\u5BF9\u5F53\u524D\u804C\u4F4D\u8F93\u51FA\u662F\u5426\u5E94\u8BE5\u6536\u85CF\u3002",
+      `\u4F60\u662F\u4E00\u4E2A${roleText}\u3002\u4F60\u53EA\u80FD\u6839\u636E\u7528\u6237\u7ED9\u5B9A\u7684\u89C4\u5219\uFF0C\u5BF9\u5F53\u524D${targetText}\u8F93\u51FA\u662F\u5426\u5E94\u8BE5\u6536\u85CF\u3002`,
       "\u53EA\u80FD\u8FD4\u56DE JSON\uFF0C\u4E0D\u8981\u8F93\u51FA Markdown\uFF0C\u4E0D\u8981\u8F93\u51FA\u989D\u5916\u8BF4\u660E\u3002",
       '\u8F93\u51FA\u683C\u5F0F\u5FC5\u987B\u662F\uFF1A{"decision":"favorite|skip|unsure","reason":"...","matched":["..."],"missing":["..."],"confidence":0.0}',
       "\u5982\u679C\u4FE1\u606F\u4E0D\u8DB3\uFF0C\u8FD4\u56DE unsure\u3002",
+      section("\u5F53\u524D\u9875\u9762\u6A21\u5F0F\uFF1A", evidence.modeLabel),
       section("\u5FC5\u987B\u547D\u4E2D\u7684\u5173\u952E\u8BCD\uFF1A", plan.keywordsMustMatch.join("\uFF0C")),
       section("\u52A0\u5206\u5173\u952E\u8BCD\uFF1A", plan.keywordsOptional.join("\uFF0C")),
       section("\u6392\u9664\u5173\u952E\u8BCD\uFF1A", plan.keywordsExclude.join("\uFF0C")),
       section("\u7528\u6237\u8865\u5145\u8BF4\u660E\uFF1A", plan.notesForAI),
-      section("\u5DE6\u4FA7\u6458\u8981\uFF1A", evidence.summaryText),
-      section("\u53F3\u4FA7\u8BE6\u60C5\u6587\u672C\uFF1A", evidence.detailText),
+      section(summaryTitle, evidence.summaryText),
+      section(detailTitle, evidence.detailText),
       section("\u9875\u9762\u6807\u7B7E\uFF1A", evidence.tags.join("\uFF0C")),
-      `\u5F53\u524D\u804C\u4F4D/\u516C\u53F8\u6458\u8981\uFF1A${evidence.label}`,
-      `\u5F53\u524D\u804C\u4F4D\u662F\u5426\u5DF2\u6536\u85CF\uFF1A${evidence.alreadyFavorited ? "\u662F" : "\u5426"}`,
-      "\u8BF7\u7ED3\u5408\u804C\u4F4D\u8981\u6C42\u3001\u516C\u53F8\u4FE1\u606F\u3001\u884C\u4E1A/\u9636\u6BB5/\u89C4\u6A21\u3001\u5173\u952E\u8BCD\u5339\u914D\u60C5\u51B5\u5224\u65AD\u662F\u5426\u503C\u5F97\u6536\u85CF\u3002"
+      `${labelText}\uFF1A${evidence.label}`,
+      `\u5F53\u524D${targetText}\u662F\u5426\u5DF2\u6536\u85CF\uFF1A${evidence.alreadyFavorited ? "\u662F" : "\u5426"}`,
+      guidance
     ].join("\n");
   }
 
@@ -83,6 +91,7 @@ ${content.trim() || "\u65E0"}
     async decide(input) {
       const endpoint = `${normalizeBaseUrl(input.settings.baseUrl)}/chat/completions`;
       const prompt = createDecisionPrompt(input.plan, input.evidence);
+      const systemRole = input.evidence.pageKind === "candidate" ? "\u5019\u9009\u4EBA\u7B5B\u9009\u52A9\u624B" : "\u804C\u4F4D\u7B5B\u9009\u52A9\u624B";
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -96,7 +105,7 @@ ${content.trim() || "\u65E0"}
           messages: [
             {
               role: "system",
-              content: "\u4F60\u662F\u4E00\u4E2A\u4E25\u683C\u8F93\u51FA JSON \u7684\u5019\u9009\u4EBA\u7B5B\u9009\u52A9\u624B\u3002"
+              content: `\u4F60\u662F\u4E00\u4E2A\u4E25\u683C\u8F93\u51FA JSON \u7684${systemRole}\u3002`
             },
             {
               role: "user",
@@ -121,7 +130,11 @@ ${content.trim() || "\u65E0"}
       const payload = await response.json();
       const rawContent = getTextContent(payload.choices?.[0]?.message?.content);
       const jsonText = extractJsonObject(rawContent);
-      return normalizeAIDecision(JSON.parse(jsonText));
+      return {
+        prompt,
+        rawOutput: rawContent,
+        decision: normalizeAIDecision(JSON.parse(jsonText))
+      };
     }
   };
 
@@ -246,13 +259,13 @@ ${content.trim() || "\u65E0"}
         let skipped = 0;
         let alreadyFavorited = 0;
         let errors = 0;
-        const total = Math.min(pageStatus.candidateCount, plan.maxItems);
+        let total = plan.maxItems;
         this.updateState("precheck", {
           processed: 0,
           total,
           favorited,
           currentLabel: void 0,
-          message: total > 0 ? runnerStateLabels.precheck : "\u672A\u627E\u5230\u53EF\u5904\u7406\u6761\u76EE"
+          message: total > 0 ? `${runnerStateLabels.precheck}\uFF08\u5F53\u524D\u5DF2\u52A0\u8F7D ${pageStatus.candidateCount} \u6761\uFF0C\u53EF\u7EE7\u7EED\u6EDA\u52A8\u52A0\u8F7D\uFF09` : "\u672A\u627E\u5230\u53EF\u5904\u7406\u6761\u76EE"
         });
         await this.syncOverlay(tabId);
         for (let index = 0; index < total; index += 1) {
@@ -264,8 +277,46 @@ ${content.trim() || "\u65E0"}
           await this.syncOverlay(tabId);
           try {
             const evidence = await this.deps.processCandidate(tabId, index);
+            if (!evidence) {
+              total = index;
+              await this.logDebug(tabId, settings, {
+                kind: "status",
+                title: `\u7B2C ${index + 1} \u6761\u672A\u52A0\u8F7D\u5230\u66F4\u591A\u5217\u8868\u9879`,
+                content: `\u5217\u8868\u5DF2\u6EDA\u52A8\u5230\u672B\u5C3E\uFF0C\u6700\u7EC8\u6309\u5DF2\u5B9E\u9645\u52A0\u8F7D\u5230\u7684 ${index} \u6761\u7ED3\u675F\u672C\u6B21\u8FD0\u884C\u3002`
+              });
+              this.updateState("record-result", {
+                total,
+                processed: results.length,
+                currentLabel: void 0,
+                message: `\u5217\u8868\u5DF2\u5230\u5E95\uFF0C\u5171\u5904\u7406 ${results.length} \u6761`
+              });
+              break;
+            }
             this.updateState("capture-evidence", { currentLabel: evidence.label });
             await this.syncOverlay(tabId);
+            await this.logDebug(tabId, settings, {
+              kind: "input",
+              title: `${evidence.modeLabel} \u7B2C ${index + 1} \u6761\u8F93\u5165`,
+              content: JSON.stringify(
+                {
+                  label: evidence.label,
+                  itemId: evidence.itemId,
+                  pageKind: evidence.pageKind,
+                  modeLabel: evidence.modeLabel,
+                  summaryText: evidence.summaryText,
+                  detailText: evidence.detailText,
+                  tags: evidence.tags,
+                  alreadyFavorited: evidence.alreadyFavorited,
+                  plan,
+                  provider: {
+                    baseUrl: settings.provider.baseUrl,
+                    model: settings.provider.model
+                  }
+                },
+                null,
+                2
+              )
+            });
             if (plan.skipIfAlreadyFavorited && evidence.alreadyFavorited) {
               alreadyFavorited += 1;
               results.push({
@@ -275,6 +326,11 @@ ${content.trim() || "\u65E0"}
                 action: "already-favorited",
                 reason: "\u8BE5\u6761\u76EE\u5DF2\u6536\u85CF"
               });
+              await this.logDebug(tabId, settings, {
+                kind: "action",
+                title: `${evidence.label} \u5DF2\u8DF3\u8FC7`,
+                content: "\u8BE5\u6761\u76EE\u5DF2\u5904\u4E8E\u6536\u85CF\u72B6\u6001\uFF0C\u6309\u914D\u7F6E\u81EA\u52A8\u8DF3\u8FC7\u3002"
+              });
               this.markProcessed(index + 1, favorited, evidence.label);
               await this.syncOverlay(tabId);
               await this.delay(plan.delayMs);
@@ -283,13 +339,30 @@ ${content.trim() || "\u65E0"}
             this.updateState("request-decision", { currentLabel: evidence.label });
             await this.syncOverlay(tabId);
             const screenshotDataUrl = await this.deps.captureVisibleTab(tab.windowId);
-            const decision = await provider.decide({
+            const result = await provider.decide({
               evidence,
               screenshotDataUrl,
               plan,
               settings: settings.provider
             });
-            const action = await this.applyDecision(tabId, decision);
+            await this.logDebug(tabId, settings, {
+              kind: "prompt",
+              title: `${evidence.label} Prompt`,
+              content: result.prompt
+            });
+            await this.logDebug(tabId, settings, {
+              kind: "output",
+              title: `${evidence.label} \u6A21\u578B\u8F93\u51FA`,
+              content: JSON.stringify(
+                {
+                  rawOutput: result.rawOutput,
+                  decision: result.decision
+                },
+                null,
+                2
+              )
+            });
+            const action = await this.applyDecision(tabId, result.decision);
             if (action === "favorited") {
               favorited += 1;
             } else {
@@ -300,8 +373,13 @@ ${content.trim() || "\u65E0"}
               label: evidence.label,
               itemId: evidence.itemId,
               action,
-              reason: decision.reason,
-              decision
+              reason: result.decision.reason,
+              decision: result.decision
+            });
+            await this.logDebug(tabId, settings, {
+              kind: "action",
+              title: `${evidence.label} \u6267\u884C\u52A8\u4F5C`,
+              content: action === "favorited" ? "\u6A21\u578B\u5224\u65AD\u4E3A\u6536\u85CF\uFF0C\u5DF2\u6267\u884C\u6536\u85CF\u52A8\u4F5C\u3002" : "\u6A21\u578B\u5224\u65AD\u4E3A\u8DF3\u8FC7\uFF0C\u672A\u6267\u884C\u6536\u85CF\u3002"
             });
           } catch (error) {
             errors += 1;
@@ -312,6 +390,11 @@ ${content.trim() || "\u65E0"}
               itemId: `item-${index}`,
               action: "error",
               reason: message
+            });
+            await this.logDebug(tabId, settings, {
+              kind: "error",
+              title: `\u7B2C ${index + 1} \u6761\u5904\u7406\u5F02\u5E38`,
+              content: message
             });
             await this.deps.showError(tabId, message);
           }
@@ -396,6 +479,16 @@ ${content.trim() || "\u65E0"}
     async delay(ms) {
       await new Promise((resolve) => globalThis.setTimeout(resolve, ms));
     }
+    async logDebug(tabId, settings, input) {
+      if (!settings.debug.enabled) {
+        return;
+      }
+      await this.deps.pushDebugLog(tabId, {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        ...input
+      });
+    }
   };
 
   // src/background/index.ts
@@ -453,7 +546,7 @@ ${content.trim() || "\u65E0"}
     );
   }
   async function scheduleDevReload() {
-    if (devReloadScheduled) {
+    if (true) {
       return;
     }
     devReloadScheduled = true;
@@ -493,6 +586,9 @@ ${content.trim() || "\u65E0"}
     },
     showError: async (tabId, message) => {
       await sendToContent(tabId, { type: "SHOW_ERROR", message });
+    },
+    pushDebugLog: async (tabId, entry) => {
+      await sendToContent(tabId, { type: "PUSH_DEBUG_LOG", entry });
     },
     getSettings
   });

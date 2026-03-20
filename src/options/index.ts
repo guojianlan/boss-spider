@@ -1,9 +1,27 @@
 import type { BackgroundRequest, BackgroundResponse } from '../shared/messages';
 import { startExtensionPageDevWatcher } from '../dev/reload';
+import { defaultSettings } from '../shared/storage';
 import type { ExtensionSettings } from '../shared/types';
 
 let currentSettings: ExtensionSettings | null = null;
 let statusText = '';
+
+function normalizeSettings(settings?: Partial<ExtensionSettings> | null): ExtensionSettings {
+  return {
+    provider: {
+      ...defaultSettings.provider,
+      ...(settings?.provider ?? {})
+    },
+    defaults: {
+      ...defaultSettings.defaults,
+      ...(settings?.defaults ?? {})
+    },
+    debug: {
+      ...defaultSettings.debug,
+      ...(settings?.debug ?? {})
+    }
+  };
+}
 
 async function sendToBackground<T extends BackgroundResponse>(request: BackgroundRequest): Promise<T> {
   const response = (await chrome.runtime.sendMessage(request)) as T;
@@ -27,6 +45,8 @@ function render(): void {
   if (!app || !currentSettings) {
     return;
   }
+
+  const debugEnabled = currentSettings.debug?.enabled ?? false;
 
   app.innerHTML = `
     <div class="panel">
@@ -70,7 +90,7 @@ function render(): void {
         <label><input id="skipFavorited" type="checkbox" ${currentSettings.defaults.skipIfAlreadyFavorited ? 'checked' : ''} /> 已收藏自动跳过</label>
       </div>
       <div class="field">
-        <label><input id="debugMode" type="checkbox" ${currentSettings.debug.enabled ? 'checked' : ''} /> 开启页面调试模式</label>
+        <label><input id="debugMode" type="checkbox" ${debugEnabled ? 'checked' : ''} /> 开启页面调试模式</label>
         <div class="muted" style="margin-top:6px;">开启后，支持页面左下角会出现“导出 DOM 快照”按钮，可把页面元素树导出成 JSON 供排查选择器。</div>
       </div>
       <div>
@@ -96,6 +116,7 @@ async function save(): Promise<void> {
   }
 
   currentSettings = {
+    ...normalizeSettings(currentSettings),
     provider: {
       baseUrl: getInputValue('baseUrl').trim(),
       apiKey: getInputValue('apiKey').trim(),
@@ -125,7 +146,7 @@ async function save(): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   const { settings } = await sendToBackground<{ ok: true; settings: ExtensionSettings }>({ type: 'GET_SETTINGS' });
-  currentSettings = settings;
+  currentSettings = normalizeSettings(settings);
   render();
 }
 

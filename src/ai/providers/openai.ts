@@ -1,6 +1,6 @@
 import { createDecisionPrompt } from '../prompts/decisionPrompt';
 import { extractJsonObject, normalizeAIDecision } from '../../shared/schema/aiDecision';
-import type { AIProvider, DecisionInput } from '../provider';
+import type { AIProvider, DecisionInput, DecisionResult } from '../provider';
 
 type MessageContent = string | Array<{ type?: string; text?: string }> | undefined;
 
@@ -36,9 +36,10 @@ function getTextContent(content: MessageContent): string {
 }
 
 export class OpenAICompatibleProvider implements AIProvider {
-  async decide(input: DecisionInput) {
+  async decide(input: DecisionInput): Promise<DecisionResult> {
     const endpoint = `${normalizeBaseUrl(input.settings.baseUrl)}/chat/completions`;
     const prompt = createDecisionPrompt(input.plan, input.evidence);
+    const systemRole = input.evidence.pageKind === 'candidate' ? '候选人筛选助手' : '职位筛选助手';
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -53,7 +54,7 @@ export class OpenAICompatibleProvider implements AIProvider {
         messages: [
           {
             role: 'system',
-            content: '你是一个严格输出 JSON 的候选人筛选助手。'
+            content: `你是一个严格输出 JSON 的${systemRole}。`
           },
           {
             role: 'user',
@@ -80,6 +81,10 @@ export class OpenAICompatibleProvider implements AIProvider {
     const payload = (await response.json()) as ChatCompletionResponse;
     const rawContent = getTextContent(payload.choices?.[0]?.message?.content);
     const jsonText = extractJsonObject(rawContent);
-    return normalizeAIDecision(JSON.parse(jsonText));
+    return {
+      prompt,
+      rawOutput: rawContent,
+      decision: normalizeAIDecision(JSON.parse(jsonText))
+    };
   }
 }

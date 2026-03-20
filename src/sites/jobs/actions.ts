@@ -6,6 +6,8 @@ import {
   getJobsItemId,
   getJobsItemLabel,
   getJobsListItems,
+  getJobsListContainer,
+  getJobsModeLabel,
   getJobsTags,
   getJobsTitle,
   inferJobsFavoriteState,
@@ -15,6 +17,44 @@ import { getVisibleText } from '../boss/extractors';
 
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function ensureJobItemLoaded(index: number): Promise<HTMLElement | null> {
+  let previousCount = -1;
+  let stableRounds = 0;
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const items = getJobsListItems();
+    const target = items[index];
+    if (target) {
+      return target;
+    }
+
+    const currentCount = items.length;
+    if (currentCount === previousCount) {
+      stableRounds += 1;
+    } else {
+      stableRounds = 0;
+      previousCount = currentCount;
+    }
+
+    if (stableRounds >= 3) {
+      return null;
+    }
+
+    const lastItem = items.at(-1);
+    lastItem?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+
+    const container = getJobsListContainer();
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+
+    window.scrollBy({ top: Math.max(window.innerHeight * 0.75, 420), behavior: 'smooth' });
+    await delay(700);
+  }
+
+  return null;
 }
 
 function clickElement(element: HTMLElement): void {
@@ -52,16 +92,18 @@ export function getJobsPageSupportStatus(): PageSupportStatus {
     supported,
     url: location.href,
     reason: supported ? undefined : isJobsPageUrl() ? '未识别到职位列表或右侧职位详情区域' : '当前不是支持的职位列表页',
-    candidateCount: items.length
+    candidateCount: items.length,
+    pageKind: 'job',
+    modeLabel: getJobsModeLabel(),
+    dynamicList: true
   };
 }
 
-export async function processJob(index: number): Promise<CandidateEvidence> {
-  const items = getJobsListItems();
-  const item = items[index];
+export async function processJob(index: number): Promise<CandidateEvidence | null> {
+  const item = await ensureJobItemLoaded(index);
 
   if (!item) {
-    throw new Error(`未找到索引为 ${index} 的职位项`);
+    return null;
   }
 
   const previousSnapshot = getVisibleText(getJobsDetailPanel());
@@ -82,7 +124,9 @@ export async function processJob(index: number): Promise<CandidateEvidence> {
     summaryText,
     detailText,
     tags: getJobsTags(detail),
-    alreadyFavorited: inferJobsFavoriteState()
+    alreadyFavorited: inferJobsFavoriteState(),
+    pageKind: 'job',
+    modeLabel: getJobsModeLabel()
   };
 }
 

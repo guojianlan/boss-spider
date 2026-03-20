@@ -1,8 +1,12 @@
+import type { DebugLogEntry } from '../shared/types';
 import { getSettings } from '../shared/storage';
 
 const ROOT_ID = '__boss_spider_debug__';
 const STATUS_ID = '__boss_spider_debug_status__';
 const BUTTON_ID = '__boss_spider_debug_export__';
+const EXPORT_LOGS_BUTTON_ID = '__boss_spider_debug_export_logs__';
+const CLEAR_LOGS_BUTTON_ID = '__boss_spider_debug_clear_logs__';
+const LOGS_ID = '__boss_spider_debug_logs__';
 
 type SnapshotRect = {
   x: number;
@@ -34,6 +38,7 @@ interface DocumentSnapshot {
 const attributeNames = new Set(['href', 'role', 'name', 'type', 'value', 'placeholder']);
 
 let exportInProgress = false;
+let debugLogs: DebugLogEntry[] = [];
 
 function escapeSelectorPart(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
@@ -190,6 +195,73 @@ function setStatus(message: string): void {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function getKindLabel(kind: DebugLogEntry['kind']): string {
+  switch (kind) {
+    case 'input':
+      return 'Input';
+    case 'prompt':
+      return 'Prompt';
+    case 'output':
+      return 'Output';
+    case 'action':
+      return 'Action';
+    case 'error':
+      return 'Error';
+    case 'status':
+      return 'Status';
+    default:
+      return kind;
+  }
+}
+
+function renderLogs(): void {
+  const logsRoot = document.getElementById(LOGS_ID);
+  if (!logsRoot) {
+    return;
+  }
+
+  logsRoot.innerHTML =
+    debugLogs.length > 0
+      ? debugLogs
+          .map(
+            (entry) => `
+              <details style="background:rgba(15,23,42,0.72);border:1px solid rgba(148,163,184,0.22);border-radius:10px;padding:8px 10px;">
+                <summary style="cursor:pointer;font-size:12px;font-weight:700;line-height:1.5;">
+                  <span style="color:#7dd3fc;">${escapeHtml(getKindLabel(entry.kind))}</span>
+                  <span style="opacity:0.92;"> ${escapeHtml(entry.title)}</span>
+                  <span style="opacity:0.6;font-weight:400;"> ${escapeHtml(new Date(entry.createdAt).toLocaleTimeString())}</span>
+                </summary>
+                <pre style="margin:8px 0 0;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:#e2e8f0;max-height:260px;overflow:auto;">${escapeHtml(entry.content)}</pre>
+              </details>
+            `
+          )
+          .join('')
+      : '<div style="font-size:12px;line-height:1.6;opacity:0.75;">暂无调试日志。启动任务后，这里会显示输入、Prompt、模型输出和执行动作。</div>';
+}
+
+function downloadLogs(): string {
+  const fileName = `boss-spider-debug-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  const blob = new Blob([JSON.stringify(debugLogs, null, 2)], { type: 'application/json' });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+  return fileName;
+}
+
 async function handleExportClick(): Promise<void> {
   if (exportInProgress) {
     return;
@@ -229,7 +301,9 @@ function buildDebugRoot(): HTMLDivElement {
   root.style.left = '20px';
   root.style.bottom = '20px';
   root.style.zIndex = '2147483647';
-  root.style.width = '320px';
+  root.style.width = '420px';
+  root.style.maxHeight = '70vh';
+  root.style.overflow = 'hidden';
   root.style.padding = '14px';
   root.style.borderRadius = '14px';
   root.style.background = 'rgba(15, 23, 42, 0.96)';
@@ -268,6 +342,59 @@ function buildDebugRoot(): HTMLDivElement {
     void handleExportClick();
   });
 
+  const exportLogsButton = document.createElement('button');
+  exportLogsButton.id = EXPORT_LOGS_BUTTON_ID;
+  exportLogsButton.type = 'button';
+  exportLogsButton.textContent = '导出调试日志';
+  exportLogsButton.style.flex = '1';
+  exportLogsButton.style.border = '0';
+  exportLogsButton.style.borderRadius = '10px';
+  exportLogsButton.style.padding = '10px 12px';
+  exportLogsButton.style.background = '#1d4ed8';
+  exportLogsButton.style.color = '#dbeafe';
+  exportLogsButton.style.fontSize = '13px';
+  exportLogsButton.style.fontWeight = '700';
+  exportLogsButton.style.cursor = 'pointer';
+  exportLogsButton.addEventListener('click', () => {
+    const fileName = downloadLogs();
+    setStatus(`已下载 ${fileName}`);
+  });
+
+  const clearLogsButton = document.createElement('button');
+  clearLogsButton.id = CLEAR_LOGS_BUTTON_ID;
+  clearLogsButton.type = 'button';
+  clearLogsButton.textContent = '清空日志';
+  clearLogsButton.style.width = '100%';
+  clearLogsButton.style.border = '1px solid rgba(148,163,184,0.3)';
+  clearLogsButton.style.borderRadius = '10px';
+  clearLogsButton.style.padding = '10px 12px';
+  clearLogsButton.style.background = 'transparent';
+  clearLogsButton.style.color = '#cbd5e1';
+  clearLogsButton.style.fontSize = '12px';
+  clearLogsButton.style.fontWeight = '600';
+  clearLogsButton.style.cursor = 'pointer';
+  clearLogsButton.style.marginTop = '8px';
+  clearLogsButton.addEventListener('click', () => {
+    debugLogs = [];
+    renderLogs();
+    setStatus('调试日志已清空');
+  });
+
+  const actionRow = document.createElement('div');
+  actionRow.style.display = 'flex';
+  actionRow.style.gap = '8px';
+  actionRow.style.marginTop = '8px';
+  actionRow.appendChild(exportLogsButton);
+
+  const logs = document.createElement('div');
+  logs.id = LOGS_ID;
+  logs.style.marginTop = '12px';
+  logs.style.display = 'flex';
+  logs.style.flexDirection = 'column';
+  logs.style.gap = '8px';
+  logs.style.maxHeight = '38vh';
+  logs.style.overflow = 'auto';
+
   const status = document.createElement('div');
   status.id = STATUS_ID;
   status.textContent = '调试模式已开启';
@@ -279,7 +406,11 @@ function buildDebugRoot(): HTMLDivElement {
   root.appendChild(title);
   root.appendChild(description);
   root.appendChild(button);
+  root.appendChild(actionRow);
+  root.appendChild(clearLogsButton);
   root.appendChild(status);
+  root.appendChild(logs);
+  renderLogs();
   return root;
 }
 
@@ -300,4 +431,10 @@ export async function syncDebugTools(enabled?: boolean): Promise<void> {
 
   ensureDebugRoot();
   setStatus('调试模式已开启');
+  renderLogs();
+}
+
+export function pushDebugLog(entry: DebugLogEntry): void {
+  debugLogs = [entry, ...debugLogs].slice(0, 30);
+  renderLogs();
 }

@@ -1,9 +1,17 @@
 export const jobsSelectors = {
-  pageRoots: ['.job-search-page', '.job-list-box', '.job-recommend-main', '[data-page="job-list"]'],
-  listContainer: ['.job-list-box', '.rec-job-list', '.search-job-result', '.job-list'],
-  listItems: ['.job-card-wrapper', '.job-card-box', '.job-card-body', '.search-job-result .job-card-wrapper'],
-  detailPanel: ['.job-detail-box', '.job-detail', '.job-detail-content', '.job-info-main'],
+  pageRoots: ['.page-jobs-main', '.job-search-page', '.job-list-box', '.job-recommend-main', '[data-page="job-list"]'],
+  listContainer: ['.job-list-container', '.job-list-box', '.rec-job-list', '.search-job-result', '.job-list'],
+  listItems: [
+    '.job-card-wrap > .job-card-box',
+    '.job-card-wrapper',
+    '.job-card-box',
+    '.job-card-body',
+    '.search-job-result .job-card-wrapper'
+  ],
+  detailPanel: ['.job-detail-container', '.job-detail-box', '.job-detail', '.job-detail-content', '.job-info-main'],
   favoriteButton: [
+    'a.op-btn-like',
+    '.op-btn-like',
     'button:has(.icon-collect)',
     'button:has(.icon-star)',
     '.btn-collect',

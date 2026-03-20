@@ -4,10 +4,10 @@
   var DEV_POLL_INTERVAL_MS = 1e3;
   var startedWatchers = /* @__PURE__ */ new Set();
   async function fetchBuildInfo() {
-    if (false) {
+    if (true) {
       return null;
     }
-    const response = await fetch(`${"http://localhost:3456"}/__boss_spider__/build-info?t=${Date.now()}`, {
+    const response = await fetch(`${""}/__boss_spider__/build-info?t=${Date.now()}`, {
       cache: "no-store"
     });
     if (!response.ok) {
@@ -16,7 +16,7 @@
     return await response.json();
   }
   function startWatcher(id, onChange) {
-    if (startedWatchers.has(id)) {
+    if (true) {
       return;
     }
     startedWatchers.add(id);
@@ -110,6 +110,22 @@
     feedbackError: false
   };
   var runtimePollingTimer = null;
+  function normalizeSettings(settings) {
+    return {
+      provider: {
+        ...defaultSettings.provider,
+        ...settings?.provider ?? {}
+      },
+      defaults: {
+        ...defaultSettings.defaults,
+        ...settings?.defaults ?? {}
+      },
+      debug: {
+        ...defaultSettings.debug,
+        ...settings?.debug ?? {}
+      }
+    };
+  }
   async function sendToBackground(request) {
     const response = await chrome.runtime.sendMessage(request);
     if (!response.ok) {
@@ -137,8 +153,9 @@
     const runtime = state.runtime;
     const summary = state.summary;
     const defaults = state.settings.defaults;
+    const debugEnabled = state.settings.debug?.enabled ?? false;
     const statusClass = pageStatus?.supported ? "status" : "status error";
-    const statusText = pageStatus ? pageStatus.supported ? `\u9875\u9762\u53EF\u8FD0\u884C\uFF0C\u8BC6\u522B\u5230 ${pageStatus.candidateCount} \u6761\u53EF\u5904\u7406\u7ED3\u679C` : pageStatus.reason ?? "\u5F53\u524D\u9875\u9762\u6682\u4E0D\u652F\u6301" : "\u6B63\u5728\u68C0\u67E5\u5F53\u524D\u9875\u9762";
+    const statusText = pageStatus ? pageStatus.supported ? `\u9875\u9762\u53EF\u8FD0\u884C\uFF08${pageStatus.modeLabel}\uFF09\uFF0C\u5F53\u524D\u5DF2\u52A0\u8F7D ${pageStatus.candidateCount} \u6761\u7ED3\u679C${pageStatus.dynamicList ? "\uFF0C\u8FD0\u884C\u65F6\u4F1A\u6309\u201C\u6700\u591A\u5904\u7406\u6761\u6570\u201D\u7EE7\u7EED\u6EDA\u52A8\u52A0\u8F7D" : ""}` : pageStatus.reason ?? "\u5F53\u524D\u9875\u9762\u6682\u4E0D\u652F\u6301" : "\u6B63\u5728\u68C0\u67E5\u5F53\u524D\u9875\u9762";
     app.innerHTML = `
     <div class="panel">
       <h1>Boss Spider</h1>
@@ -150,7 +167,7 @@
     <div class="panel">
       <h2>\u8C03\u8BD5</h2>
       <div class="field">
-        <label><input id="debugMode" type="checkbox" ${state.settings.debug.enabled ? "checked" : ""} /> \u5F00\u542F\u9875\u9762\u8C03\u8BD5\u6A21\u5F0F</label>
+        <label><input id="debugMode" type="checkbox" ${debugEnabled ? "checked" : ""} /> \u5F00\u542F\u9875\u9762\u8C03\u8BD5\u6A21\u5F0F</label>
         <div class="hint" style="margin-top:6px;">\u5F00\u542F\u540E\u4F1A\u5728\u5F53\u524D\u9875\u9762\u5DE6\u4E0B\u89D2\u6CE8\u5165\u201C\u5BFC\u51FA DOM \u5FEB\u7167\u201D\u6309\u94AE\uFF0C\u5BFC\u51FA\u7684 JSON \u53EF\u4EE5\u53D1\u7ED9\u6211\u5B9A\u4F4D\u5217\u8868\u548C\u8BE6\u60C5\u533A\u57DF\u3002</div>
       </div>
       <div class="actions">
@@ -230,6 +247,7 @@
   }
   async function startRun() {
     try {
+      state.settings = normalizeSettings(state.settings);
       if (!state.settings.provider.baseUrl.trim() || !state.settings.provider.apiKey.trim()) {
         throw new Error("\u8BF7\u5148\u6253\u5F00\u8BBE\u7F6E\u9875\u914D\u7F6E baseUrl \u548C apiKey");
       }
@@ -243,7 +261,7 @@
         skipIfAlreadyFavorited: document.getElementById("skipFavorited")?.checked ?? true
       });
       state.settings = {
-        ...state.settings,
+        ...normalizeSettings(state.settings),
         defaults: {
           ...state.settings.defaults,
           keywordsMustMatch: getInputValue("must"),
@@ -268,6 +286,7 @@
   }
   async function saveDebugSettings() {
     try {
+      state.settings = normalizeSettings(state.settings);
       state.settings = {
         ...state.settings,
         debug: {
@@ -311,7 +330,7 @@
         sendToBackground({ type: "GET_SETTINGS" })
       ]);
       state.pageStatus = pageStatus;
-      state.settings = settings;
+      state.settings = normalizeSettings(settings);
       await refreshRuntime(false);
       ensureRuntimePolling();
     } catch (error) {

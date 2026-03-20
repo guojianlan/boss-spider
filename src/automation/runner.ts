@@ -2,6 +2,7 @@ import { OpenAICompatibleProvider } from '../ai/providers/openai';
 import type {
   AIDecision,
   CandidateEvidence,
+  DebugLogEntry,
   ExtensionSettings,
   PageSupportStatus,
   RunPlan,
@@ -14,12 +15,13 @@ import { runnerStateLabels, type RunnerState } from './stateMachine';
 interface RunnerDependencies {
   getPageStatus(): Promise<chrome.tabs.Tab>;
   requestPageStatus(tabId: number): Promise<PageSupportStatus>;
-  processCandidate(tabId: number, index: number): Promise<CandidateEvidence>;
+  processCandidate(tabId: number, index: number): Promise<CandidateEvidence | null>;
   clickFavorite(tabId: number): Promise<boolean>;
   captureVisibleTab(windowId?: number): Promise<string>;
   updateOverlay(tabId: number, runtime: RuntimeStatus): Promise<void>;
   showCompletion(tabId: number, summary: RunSummary): Promise<void>;
   showError(tabId: number, message: string): Promise<void>;
+  pushDebugLog(tabId: number, entry: DebugLogEntry): Promise<void>;
   getSettings(): Promise<ExtensionSettings>;
 }
 
@@ -83,14 +85,14 @@ export class AutomationRunner {
       let skipped = 0;
       let alreadyFavorited = 0;
       let errors = 0;
-      const total = Math.min(pageStatus.candidateCount, plan.maxItems);
+      let total = plan.maxItems;
 
       this.updateState('precheck', {
         processed: 0,
         total,
         favorited,
         currentLabel: undefined,
-        message: total > 0 ? runnerStateLabels.precheck : '未找到可处理条目'
+        message: total > 0 ? `${runnerStateLabels.precheck}（当前已加载 ${pageStatus.candidateCount} 条，可继续滚动加载）` : '未找到可处理条目'
       });
       await this.syncOverlay(tabId);
 
@@ -105,8 +107,47 @@ export class AutomationRunner {
 
         try {
           const evidence = await this.deps.processCandidate(tabId, index);
+          if (!evidence) {
+            total = index;
+            await this.logDebug(tabId, settings, {
+              kind: 'status',
+              title: `第 ${index + 1} 条未加载到更多列表项`,
+              content: `列表已滚动到末尾，最终按已实际加载到的 ${index} 条结束本次运行。`
+            });
+            this.updateState('record-result', {
+              total,
+              processed: results.length,
+              currentLabel: undefined,
+              message: `列表已到底，共处理 ${results.length} 条`
+            });
+            break;
+          }
+
           this.updateState('capture-evidence', { currentLabel: evidence.label });
           await this.syncOverlay(tabId);
+          await this.logDebug(tabId, settings, {
+            kind: 'input',
+            title: `${evidence.modeLabel} 第 ${index + 1} 条输入`,
+            content: JSON.stringify(
+              {
+                label: evidence.label,
+                itemId: evidence.itemId,
+                pageKind: evidence.pageKind,
+                modeLabel: evidence.modeLabel,
+                summaryText: evidence.summaryText,
+                detailText: evidence.detailText,
+                tags: evidence.tags,
+                alreadyFavorited: evidence.alreadyFavorited,
+                plan,
+                provider: {
+                  baseUrl: settings.provider.baseUrl,
+                  model: settings.provider.model
+                }
+              },
+              null,
+              2
+            )
+          });
 
           if (plan.skipIfAlreadyFavorited && evidence.alreadyFavorited) {
             alreadyFavorited += 1;
@@ -116,6 +157,11 @@ export class AutomationRunner {
               itemId: evidence.itemId,
               action: 'already-favorited',
               reason: '该条目已收藏'
+            });
+            await this.logDebug(tabId, settings, {
+              kind: 'action',
+              title: `${evidence.label} 已跳过`,
+              content: '该条目已处于收藏状态，按配置自动跳过。'
             });
             this.markProcessed(index + 1, favorited, evidence.label);
             await this.syncOverlay(tabId);
@@ -127,14 +173,31 @@ export class AutomationRunner {
           await this.syncOverlay(tabId);
 
           const screenshotDataUrl = await this.deps.captureVisibleTab(tab.windowId);
-          const decision = await provider.decide({
+          const result = await provider.decide({
             evidence,
             screenshotDataUrl,
             plan,
             settings: settings.provider
           });
+          await this.logDebug(tabId, settings, {
+            kind: 'prompt',
+            title: `${evidence.label} Prompt`,
+            content: result.prompt
+          });
+          await this.logDebug(tabId, settings, {
+            kind: 'output',
+            title: `${evidence.label} 模型输出`,
+            content: JSON.stringify(
+              {
+                rawOutput: result.rawOutput,
+                decision: result.decision
+              },
+              null,
+              2
+            )
+          });
 
-          const action = await this.applyDecision(tabId, decision);
+          const action = await this.applyDecision(tabId, result.decision);
           if (action === 'favorited') {
             favorited += 1;
           } else {
@@ -146,8 +209,13 @@ export class AutomationRunner {
             label: evidence.label,
             itemId: evidence.itemId,
             action,
-            reason: decision.reason,
-            decision
+            reason: result.decision.reason,
+            decision: result.decision
+          });
+          await this.logDebug(tabId, settings, {
+            kind: 'action',
+            title: `${evidence.label} 执行动作`,
+            content: action === 'favorited' ? '模型判断为收藏，已执行收藏动作。' : '模型判断为跳过，未执行收藏。'
           });
         } catch (error) {
           errors += 1;
@@ -158,6 +226,11 @@ export class AutomationRunner {
             itemId: `item-${index}`,
             action: 'error',
             reason: message
+          });
+          await this.logDebug(tabId, settings, {
+            kind: 'error',
+            title: `第 ${index + 1} 条处理异常`,
+            content: message
           });
           await this.deps.showError(tabId, message);
         }
@@ -251,5 +324,21 @@ export class AutomationRunner {
 
   private async delay(ms: number): Promise<void> {
     await new Promise((resolve) => globalThis.setTimeout(resolve, ms));
+  }
+
+  private async logDebug(
+    tabId: number,
+    settings: ExtensionSettings,
+    input: Omit<DebugLogEntry, 'id' | 'createdAt'>
+  ): Promise<void> {
+    if (!settings.debug.enabled) {
+      return;
+    }
+
+    await this.deps.pushDebugLog(tabId, {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+      ...input
+    });
   }
 }

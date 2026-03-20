@@ -44,6 +44,10 @@ export function getJobsDetailPanel(): HTMLElement | null {
   return queryFirst(jobsSelectors.detailPanel);
 }
 
+export function getJobsModeLabel(): string {
+  return '找职位/公司';
+}
+
 export function getJobsFavoriteButton(): HTMLButtonElement | null {
   return queryFirst(jobsSelectors.favoriteButton) as HTMLButtonElement | null;
 }

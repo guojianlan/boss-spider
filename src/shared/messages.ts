@@ -1,5 +1,6 @@
 import type {
   CandidateEvidence,
+  DebugLogEntry,
   ExtensionSettings,
   PageSupportStatus,
   RunPlan,
@@ -30,6 +31,7 @@ export type ContentRequest =
   | { type: 'PROCESS_CANDIDATE'; index: number }
   | { type: 'CLICK_FAVORITE' }
   | { type: 'DEV_PREPARE_RELOAD' }
+  | { type: 'PUSH_DEBUG_LOG'; entry: DebugLogEntry }
   | { type: 'SET_DEBUG_MODE'; enabled: boolean }
   | { type: 'UPDATE_OVERLAY'; runtime: RuntimeStatus }
   | { type: 'SHOW_COMPLETION'; summary: RunSummary }
@@ -37,7 +39,7 @@ export type ContentRequest =
 
 export type ContentResponse =
   | { ok: true; pageStatus: PageSupportStatus }
-  | { ok: true; evidence: CandidateEvidence }
+  | { ok: true; evidence: CandidateEvidence | null }
   | { ok: true; favorited: boolean }
   | { ok: true }
   | { ok: false; error: string };

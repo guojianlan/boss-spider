@@ -3,7 +3,7 @@ import { clickJobsFavorite, getJobsPageSupportStatus, processJob } from './actio
 
 export interface JobsAdapter {
   getPageStatus(): PageSupportStatus;
-  processCandidate(index: number): Promise<CandidateEvidence>;
+  processCandidate(index: number): Promise<CandidateEvidence | null>;
   clickFavorite(): Promise<boolean>;
 }
 

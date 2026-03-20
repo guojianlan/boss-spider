@@ -3,7 +3,7 @@ import { clickFavorite, getPageSupportStatus, processCandidate } from './actions
 
 export interface BossAdapter {
   getPageStatus(): PageSupportStatus;
-  processCandidate(index: number): Promise<CandidateEvidence>;
+  processCandidate(index: number): Promise<CandidateEvidence | null>;
   clickFavorite(): Promise<boolean>;
 }
 

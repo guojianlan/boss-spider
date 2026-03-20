@@ -24,6 +24,23 @@ const state: PopupState = {
 
 let runtimePollingTimer: number | null = null;
 
+function normalizeSettings(settings?: Partial<ExtensionSettings> | null): ExtensionSettings {
+  return {
+    provider: {
+      ...defaultSettings.provider,
+      ...(settings?.provider ?? {})
+    },
+    defaults: {
+      ...defaultSettings.defaults,
+      ...(settings?.defaults ?? {})
+    },
+    debug: {
+      ...defaultSettings.debug,
+      ...(settings?.debug ?? {})
+    }
+  };
+}
+
 async function sendToBackground<T extends BackgroundResponse>(request: BackgroundRequest): Promise<T> {
   const response = (await chrome.runtime.sendMessage(request)) as T;
   if (!response.ok) {
@@ -61,10 +78,11 @@ function render(): void {
   const runtime = state.runtime;
   const summary = state.summary;
   const defaults = state.settings.defaults;
+  const debugEnabled = state.settings.debug?.enabled ?? false;
   const statusClass = pageStatus?.supported ? 'status' : 'status error';
   const statusText = pageStatus
     ? pageStatus.supported
-      ? `页面可运行，识别到 ${pageStatus.candidateCount} 条可处理结果`
+      ? `页面可运行（${pageStatus.modeLabel}），当前已加载 ${pageStatus.candidateCount} 条结果${pageStatus.dynamicList ? '，运行时会按“最多处理条数”继续滚动加载' : ''}`
       : pageStatus.reason ?? '当前页面暂不支持'
     : '正在检查当前页面';
 
@@ -79,7 +97,7 @@ function render(): void {
     <div class="panel">
       <h2>调试</h2>
       <div class="field">
-        <label><input id="debugMode" type="checkbox" ${state.settings.debug.enabled ? 'checked' : ''} /> 开启页面调试模式</label>
+        <label><input id="debugMode" type="checkbox" ${debugEnabled ? 'checked' : ''} /> 开启页面调试模式</label>
         <div class="hint" style="margin-top:6px;">开启后会在当前页面左下角注入“导出 DOM 快照”按钮，导出的 JSON 可以发给我定位列表和详情区域。</div>
       </div>
       <div class="actions">
@@ -165,6 +183,7 @@ function getInputValue(id: string): string {
 
 async function startRun(): Promise<void> {
   try {
+    state.settings = normalizeSettings(state.settings);
     if (!state.settings.provider.baseUrl.trim() || !state.settings.provider.apiKey.trim()) {
       throw new Error('请先打开设置页配置 baseUrl 和 apiKey');
     }
@@ -180,7 +199,7 @@ async function startRun(): Promise<void> {
     });
 
     state.settings = {
-      ...state.settings,
+      ...normalizeSettings(state.settings),
       defaults: {
         ...state.settings.defaults,
         keywordsMustMatch: getInputValue('must'),
@@ -207,6 +226,7 @@ async function startRun(): Promise<void> {
 
 async function saveDebugSettings(): Promise<void> {
   try {
+    state.settings = normalizeSettings(state.settings);
     state.settings = {
       ...state.settings,
       debug: {
@@ -257,7 +277,7 @@ async function bootstrap(): Promise<void> {
       sendToBackground<{ ok: true; settings: ExtensionSettings }>({ type: 'GET_SETTINGS' })
     ]);
     state.pageStatus = pageStatus;
-    state.settings = settings;
+    state.settings = normalizeSettings(settings);
     await refreshRuntime(false);
     ensureRuntimePolling();
   } catch (error) {

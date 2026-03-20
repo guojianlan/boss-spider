@@ -35,6 +35,10 @@ export function getDetailPanel(): HTMLElement | null {
   return queryFirst(bossSelectors.detailPanel);
 }
 
+export function getBossModeLabel(): string {
+  return '找候选人/简历';
+}
+
 export function getFavoriteButton(): HTMLButtonElement | null {
   return queryFirst(bossSelectors.favoriteButton) as HTMLButtonElement | null;
 }

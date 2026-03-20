@@ -4,10 +4,10 @@
   var DEV_POLL_INTERVAL_MS = 1e3;
   var startedWatchers = /* @__PURE__ */ new Set();
   async function fetchBuildInfo() {
-    if (false) {
+    if (true) {
       return null;
     }
-    const response = await fetch(`${"http://localhost:3456"}/__boss_spider__/build-info?t=${Date.now()}`, {
+    const response = await fetch(`${""}/__boss_spider__/build-info?t=${Date.now()}`, {
       cache: "no-store"
     });
     if (!response.ok) {
@@ -16,7 +16,7 @@
     return await response.json();
   }
   function startWatcher(id, onChange) {
-    if (startedWatchers.has(id)) {
+    if (true) {
       return;
     }
     startedWatchers.add(id);
@@ -100,8 +100,12 @@
   var ROOT_ID = "__boss_spider_debug__";
   var STATUS_ID = "__boss_spider_debug_status__";
   var BUTTON_ID = "__boss_spider_debug_export__";
+  var EXPORT_LOGS_BUTTON_ID = "__boss_spider_debug_export_logs__";
+  var CLEAR_LOGS_BUTTON_ID = "__boss_spider_debug_clear_logs__";
+  var LOGS_ID = "__boss_spider_debug_logs__";
   var attributeNames = /* @__PURE__ */ new Set(["href", "role", "name", "type", "value", "placeholder"]);
   var exportInProgress = false;
+  var debugLogs = [];
   function escapeSelectorPart(value) {
     return value.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
   }
@@ -228,6 +232,58 @@
       status.textContent = message;
     }
   }
+  function escapeHtml(value) {
+    return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+  }
+  function getKindLabel(kind) {
+    switch (kind) {
+      case "input":
+        return "Input";
+      case "prompt":
+        return "Prompt";
+      case "output":
+        return "Output";
+      case "action":
+        return "Action";
+      case "error":
+        return "Error";
+      case "status":
+        return "Status";
+      default:
+        return kind;
+    }
+  }
+  function renderLogs() {
+    const logsRoot = document.getElementById(LOGS_ID);
+    if (!logsRoot) {
+      return;
+    }
+    logsRoot.innerHTML = debugLogs.length > 0 ? debugLogs.map(
+      (entry) => `
+              <details style="background:rgba(15,23,42,0.72);border:1px solid rgba(148,163,184,0.22);border-radius:10px;padding:8px 10px;">
+                <summary style="cursor:pointer;font-size:12px;font-weight:700;line-height:1.5;">
+                  <span style="color:#7dd3fc;">${escapeHtml(getKindLabel(entry.kind))}</span>
+                  <span style="opacity:0.92;"> ${escapeHtml(entry.title)}</span>
+                  <span style="opacity:0.6;font-weight:400;"> ${escapeHtml(new Date(entry.createdAt).toLocaleTimeString())}</span>
+                </summary>
+                <pre style="margin:8px 0 0;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;color:#e2e8f0;max-height:260px;overflow:auto;">${escapeHtml(entry.content)}</pre>
+              </details>
+            `
+    ).join("") : '<div style="font-size:12px;line-height:1.6;opacity:0.75;">\u6682\u65E0\u8C03\u8BD5\u65E5\u5FD7\u3002\u542F\u52A8\u4EFB\u52A1\u540E\uFF0C\u8FD9\u91CC\u4F1A\u663E\u793A\u8F93\u5165\u3001Prompt\u3001\u6A21\u578B\u8F93\u51FA\u548C\u6267\u884C\u52A8\u4F5C\u3002</div>';
+  }
+  function downloadLogs() {
+    const fileName = `boss-spider-debug-logs-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.json`;
+    const blob = new Blob([JSON.stringify(debugLogs, null, 2)], { type: "application/json" });
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    return fileName;
+  }
   async function handleExportClick() {
     if (exportInProgress) {
       return;
@@ -263,7 +319,9 @@
     root.style.left = "20px";
     root.style.bottom = "20px";
     root.style.zIndex = "2147483647";
-    root.style.width = "320px";
+    root.style.width = "420px";
+    root.style.maxHeight = "70vh";
+    root.style.overflow = "hidden";
     root.style.padding = "14px";
     root.style.borderRadius = "14px";
     root.style.background = "rgba(15, 23, 42, 0.96)";
@@ -298,6 +356,55 @@
     button.addEventListener("click", () => {
       void handleExportClick();
     });
+    const exportLogsButton = document.createElement("button");
+    exportLogsButton.id = EXPORT_LOGS_BUTTON_ID;
+    exportLogsButton.type = "button";
+    exportLogsButton.textContent = "\u5BFC\u51FA\u8C03\u8BD5\u65E5\u5FD7";
+    exportLogsButton.style.flex = "1";
+    exportLogsButton.style.border = "0";
+    exportLogsButton.style.borderRadius = "10px";
+    exportLogsButton.style.padding = "10px 12px";
+    exportLogsButton.style.background = "#1d4ed8";
+    exportLogsButton.style.color = "#dbeafe";
+    exportLogsButton.style.fontSize = "13px";
+    exportLogsButton.style.fontWeight = "700";
+    exportLogsButton.style.cursor = "pointer";
+    exportLogsButton.addEventListener("click", () => {
+      const fileName = downloadLogs();
+      setStatus(`\u5DF2\u4E0B\u8F7D ${fileName}`);
+    });
+    const clearLogsButton = document.createElement("button");
+    clearLogsButton.id = CLEAR_LOGS_BUTTON_ID;
+    clearLogsButton.type = "button";
+    clearLogsButton.textContent = "\u6E05\u7A7A\u65E5\u5FD7";
+    clearLogsButton.style.width = "100%";
+    clearLogsButton.style.border = "1px solid rgba(148,163,184,0.3)";
+    clearLogsButton.style.borderRadius = "10px";
+    clearLogsButton.style.padding = "10px 12px";
+    clearLogsButton.style.background = "transparent";
+    clearLogsButton.style.color = "#cbd5e1";
+    clearLogsButton.style.fontSize = "12px";
+    clearLogsButton.style.fontWeight = "600";
+    clearLogsButton.style.cursor = "pointer";
+    clearLogsButton.style.marginTop = "8px";
+    clearLogsButton.addEventListener("click", () => {
+      debugLogs = [];
+      renderLogs();
+      setStatus("\u8C03\u8BD5\u65E5\u5FD7\u5DF2\u6E05\u7A7A");
+    });
+    const actionRow = document.createElement("div");
+    actionRow.style.display = "flex";
+    actionRow.style.gap = "8px";
+    actionRow.style.marginTop = "8px";
+    actionRow.appendChild(exportLogsButton);
+    const logs = document.createElement("div");
+    logs.id = LOGS_ID;
+    logs.style.marginTop = "12px";
+    logs.style.display = "flex";
+    logs.style.flexDirection = "column";
+    logs.style.gap = "8px";
+    logs.style.maxHeight = "38vh";
+    logs.style.overflow = "auto";
     const status = document.createElement("div");
     status.id = STATUS_ID;
     status.textContent = "\u8C03\u8BD5\u6A21\u5F0F\u5DF2\u5F00\u542F";
@@ -308,7 +415,11 @@
     root.appendChild(title);
     root.appendChild(description);
     root.appendChild(button);
+    root.appendChild(actionRow);
+    root.appendChild(clearLogsButton);
     root.appendChild(status);
+    root.appendChild(logs);
+    renderLogs();
     return root;
   }
   function ensureDebugRoot() {
@@ -325,6 +436,11 @@
     }
     ensureDebugRoot();
     setStatus("\u8C03\u8BD5\u6A21\u5F0F\u5DF2\u5F00\u542F");
+    renderLogs();
+  }
+  function pushDebugLog(entry) {
+    debugLogs = [entry, ...debugLogs].slice(0, 30);
+    renderLogs();
   }
 
   // src/content/overlay.ts
@@ -473,6 +589,9 @@
   function getDetailPanel() {
     return queryFirst(bossSelectors.detailPanel);
   }
+  function getBossModeLabel() {
+    return "\u627E\u5019\u9009\u4EBA/\u7B80\u5386";
+  }
   function getFavoriteButton() {
     return queryFirst(bossSelectors.favoriteButton);
   }
@@ -512,6 +631,36 @@
   async function delay(ms) {
     await new Promise((resolve) => window.setTimeout(resolve, ms));
   }
+  async function ensureCandidateItemLoaded(index) {
+    let previousCount = -1;
+    let stableRounds = 0;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const items = getListItems();
+      const target = items[index];
+      if (target) {
+        return target;
+      }
+      const currentCount = items.length;
+      if (currentCount === previousCount) {
+        stableRounds += 1;
+      } else {
+        stableRounds = 0;
+        previousCount = currentCount;
+      }
+      if (stableRounds >= 3) {
+        return null;
+      }
+      const lastItem = items.at(-1);
+      lastItem?.scrollIntoView({ block: "end", behavior: "smooth" });
+      const container = getListContainer();
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+      window.scrollBy({ top: Math.max(window.innerHeight * 0.75, 420), behavior: "smooth" });
+      await delay(700);
+    }
+    return null;
+  }
   function clickElement(element) {
     element.scrollIntoView({ block: "center", behavior: "smooth" });
     element.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
@@ -540,14 +689,16 @@
       supported: items.length > 0 && detail !== null,
       url: location.href,
       reason: items.length > 0 && detail ? void 0 : "\u672A\u8BC6\u522B\u5230\u5217\u8868\u6216\u53F3\u4FA7\u8BE6\u60C5\u533A\u57DF",
-      candidateCount: items.length
+      candidateCount: items.length,
+      pageKind: "candidate",
+      modeLabel: getBossModeLabel(),
+      dynamicList: true
     };
   }
   async function processCandidate(index) {
-    const items = getListItems();
-    const item = items[index];
+    const item = await ensureCandidateItemLoaded(index);
     if (!item) {
-      throw new Error(`\u672A\u627E\u5230\u7D22\u5F15\u4E3A ${index} \u7684\u5019\u9009\u4EBA\u9879`);
+      return null;
     }
     const previousSnapshot = getVisibleText(getDetailPanel());
     clickElement(item);
@@ -561,7 +712,9 @@
       detailText: getVisibleText(detail),
       summaryText: getVisibleText(item),
       tags: getTagTexts(detail),
-      alreadyFavorited: inferFavoriteState(favoriteButton)
+      alreadyFavorited: inferFavoriteState(favoriteButton),
+      pageKind: "candidate",
+      modeLabel: getBossModeLabel()
     };
   }
   async function clickFavorite() {
@@ -593,11 +746,19 @@
 
   // src/sites/jobs/selectors.ts
   var jobsSelectors = {
-    pageRoots: [".job-search-page", ".job-list-box", ".job-recommend-main", '[data-page="job-list"]'],
-    listContainer: [".job-list-box", ".rec-job-list", ".search-job-result", ".job-list"],
-    listItems: [".job-card-wrapper", ".job-card-box", ".job-card-body", ".search-job-result .job-card-wrapper"],
-    detailPanel: [".job-detail-box", ".job-detail", ".job-detail-content", ".job-info-main"],
+    pageRoots: [".page-jobs-main", ".job-search-page", ".job-list-box", ".job-recommend-main", '[data-page="job-list"]'],
+    listContainer: [".job-list-container", ".job-list-box", ".rec-job-list", ".search-job-result", ".job-list"],
+    listItems: [
+      ".job-card-wrap > .job-card-box",
+      ".job-card-wrapper",
+      ".job-card-box",
+      ".job-card-body",
+      ".search-job-result .job-card-wrapper"
+    ],
+    detailPanel: [".job-detail-container", ".job-detail-box", ".job-detail", ".job-detail-content", ".job-info-main"],
     favoriteButton: [
+      "a.op-btn-like",
+      ".op-btn-like",
       "button:has(.icon-collect)",
       "button:has(.icon-star)",
       ".btn-collect",
@@ -646,6 +807,9 @@
   function getJobsDetailPanel() {
     return queryFirst2(jobsSelectors.detailPanel);
   }
+  function getJobsModeLabel() {
+    return "\u627E\u804C\u4F4D/\u516C\u53F8";
+  }
   function getJobsFavoriteButton() {
     return queryFirst2(jobsSelectors.favoriteButton);
   }
@@ -672,6 +836,36 @@
   // src/sites/jobs/actions.ts
   async function delay2(ms) {
     await new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+  async function ensureJobItemLoaded(index) {
+    let previousCount = -1;
+    let stableRounds = 0;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const items = getJobsListItems();
+      const target = items[index];
+      if (target) {
+        return target;
+      }
+      const currentCount = items.length;
+      if (currentCount === previousCount) {
+        stableRounds += 1;
+      } else {
+        stableRounds = 0;
+        previousCount = currentCount;
+      }
+      if (stableRounds >= 3) {
+        return null;
+      }
+      const lastItem = items.at(-1);
+      lastItem?.scrollIntoView({ block: "end", behavior: "smooth" });
+      const container = getJobsListContainer();
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+      window.scrollBy({ top: Math.max(window.innerHeight * 0.75, 420), behavior: "smooth" });
+      await delay2(700);
+    }
+    return null;
   }
   function clickElement2(element) {
     element.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -702,14 +896,16 @@
       supported,
       url: location.href,
       reason: supported ? void 0 : isJobsPageUrl() ? "\u672A\u8BC6\u522B\u5230\u804C\u4F4D\u5217\u8868\u6216\u53F3\u4FA7\u804C\u4F4D\u8BE6\u60C5\u533A\u57DF" : "\u5F53\u524D\u4E0D\u662F\u652F\u6301\u7684\u804C\u4F4D\u5217\u8868\u9875",
-      candidateCount: items.length
+      candidateCount: items.length,
+      pageKind: "job",
+      modeLabel: getJobsModeLabel(),
+      dynamicList: true
     };
   }
   async function processJob(index) {
-    const items = getJobsListItems();
-    const item = items[index];
+    const item = await ensureJobItemLoaded(index);
     if (!item) {
-      throw new Error(`\u672A\u627E\u5230\u7D22\u5F15\u4E3A ${index} \u7684\u804C\u4F4D\u9879`);
+      return null;
     }
     const previousSnapshot = getVisibleText(getJobsDetailPanel());
     clickElement2(item);
@@ -727,7 +923,9 @@
       summaryText,
       detailText,
       tags: getJobsTags(detail),
-      alreadyFavorited: inferJobsFavoriteState()
+      alreadyFavorited: inferJobsFavoriteState(),
+      pageKind: "job",
+      modeLabel: getJobsModeLabel()
     };
   }
   async function clickJobsFavorite() {
@@ -791,6 +989,9 @@
         return ok({ ok: true });
       case "SET_DEBUG_MODE":
         syncDebugTools(request.enabled);
+        return ok({ ok: true });
+      case "PUSH_DEBUG_LOG":
+        pushDebugLog(request.entry);
         return ok({ ok: true });
       case "UPDATE_OVERLAY":
         renderRuntimeOverlay(request.runtime);

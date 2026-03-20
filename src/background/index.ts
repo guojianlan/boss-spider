@@ -1,6 +1,6 @@
 import { AutomationRunner } from '../automation/runner';
 import type { BackgroundRequest, BackgroundResponse, ContentRequest, ContentResponse } from '../shared/messages';
-import type { CandidateEvidence, ExtensionSettings, PageSupportStatus, RunSummary, RuntimeStatus } from '../shared/types';
+import type { CandidateEvidence, DebugLogEntry, ExtensionSettings, PageSupportStatus, RunSummary, RuntimeStatus } from '../shared/types';
 import { getLastSummary, getSettings, saveSettings } from '../shared/storage';
 
 function isMessageError(error: unknown): string {
@@ -85,7 +85,7 @@ const runner = new AutomationRunner({
     return response.pageStatus;
   },
   processCandidate: async (tabId, index) => {
-    const response = await sendToContent<{ ok: true; evidence: CandidateEvidence }>(tabId, {
+    const response = await sendToContent<{ ok: true; evidence: CandidateEvidence | null }>(tabId, {
       type: 'PROCESS_CANDIDATE',
       index
     });
@@ -109,6 +109,9 @@ const runner = new AutomationRunner({
   },
   showError: async (tabId, message) => {
     await sendToContent(tabId, { type: 'SHOW_ERROR', message });
+  },
+  pushDebugLog: async (tabId, entry) => {
+    await sendToContent(tabId, { type: 'PUSH_DEBUG_LOG', entry });
   },
   getSettings
 });
